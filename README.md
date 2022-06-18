@@ -2,10 +2,20 @@
 
 A library that provides a programming model for input, output, and event handling through a unified interface for various Ethereum-based wallet providers on a web browser. Compatible with Metamask, Binance and Coinbase wallets.
 
-# Getting started
+## Getting started
 
 ```bash
 npm install --save @fungibless/wallet-module
+```
+
+## Multiple Wallet Support
+
+- Choose one below. single walletModule should be initialized only one time with WalletKind
+
+```javascript
+walletModule.initialize(WalletKind.MetaMask); // MetaMask Wallet
+//walletModule.initialize(WalletKind.Binance); // Binance Wallet
+//walletModule.initialize(WalletKind.Coinbase); // Coinbase Wallet
 ```
 
 ## Usage

@@ -88,12 +88,13 @@ enum WalletModuleEvent {
 
 export class DefaultWalletModule implements WalletModule {
 
+    private _initialized: boolean = false;
     private _address!: string;
     private _web3Provider!: providers.Web3Provider;
 
     private _walletInstalled: boolean = false;
     private _walletConnected: boolean = false;
-
+    
     private _listeners: Map<WalletModuleEvent, Array<WalletModuleCallbackFunction<any>>>;
 
     constructor() {
@@ -127,6 +128,9 @@ export class DefaultWalletModule implements WalletModule {
     }
 
     initialize(walletKind: WalletKind): void {
+        if(this._initialized) {
+            throw new Error("This walle module is already initialized. Initialization is allowed just one time with specific provider.");
+        }        
         let web3Provider;
 
         switch (walletKind) {
@@ -161,6 +165,7 @@ export class DefaultWalletModule implements WalletModule {
     initializeWithWeb3Provider(web3Provider: providers.Web3Provider): void {
         if (web3Provider && web3Provider._isProvider) {
             this._web3Provider = web3Provider;
+            this._initialized = true;
             this._emitWalletInstalled({ installed: true, kind: this._determineWalletKind(web3Provider) })
             this._listeners.get(WalletModuleEvent.ChainChanged)?.forEach(
                 (callback: WalletModuleCallbackFunction<OnChainChangedResult>) => {
