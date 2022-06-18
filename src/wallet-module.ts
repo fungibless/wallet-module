@@ -1,4 +1,4 @@
-import { providers, BigNumber, utils, ethers } from 'ethers';
+import { providers, BigNumber, ethers } from 'ethers';
 
 declare global {
     interface Window {
@@ -67,13 +67,13 @@ interface WalletModule {
 
     loadBalance(): void;
 
-    addOnWalletInstalledListeners(listener: WalletModuleCallbackFunction<OnWalletInstalledResult>): this;
-    addOnChainConnectedListeners(listener: WalletModuleCallbackFunction<OnChainConnectedResult>): this;
-    addOnChainChangedListeners(listener: WalletModuleCallbackFunction<OnChainChangedResult>): this;
-    addOnAccountChangedListeners(listener: WalletModuleCallbackFunction<OnAccountChangedResult>): this;
-    addOnAccountConnectCanceledListeners(listener: WalletModuleCallbackFunction<void>): this;
-    addOnDisconnectedListeners(listener: WalletModuleCallbackFunction<void>): this;
-    addOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<BigNumber>): this;
+    bindOnWalletInstalledListeners(listener: WalletModuleCallbackFunction<OnWalletInstalledResult>): this;
+    bindOnChainConnectedListeners(listener: WalletModuleCallbackFunction<OnChainConnectedResult>): this;
+    bindOnChainChangedListeners(listener: WalletModuleCallbackFunction<OnChainChangedResult>): this;
+    bindOnAccountChangedListeners(listener: WalletModuleCallbackFunction<OnAccountChangedResult>): this;
+    bindOnAccountConnectCanceledListeners(listener: WalletModuleCallbackFunction<void>): this;
+    bindOnDisconnectedListeners(listener: WalletModuleCallbackFunction<void>): this;
+    bindOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<BigNumber>): this;
 }
 
 enum WalletModuleEvent {
@@ -94,8 +94,8 @@ export class DefaultWalletModule implements WalletModule {
 
     private _walletInstalled: boolean = false;
     private _walletConnected: boolean = false;
-    
-    private _listeners: Map<WalletModuleEvent, Array<WalletModuleCallbackFunction<any>>>;
+
+    private _listeners: Map<WalletModuleEvent, WalletModuleCallbackFunction<any>>;
 
     constructor() {
         this._listeners = new Map();
@@ -128,9 +128,10 @@ export class DefaultWalletModule implements WalletModule {
     }
 
     initialize(walletKind: WalletKind): void {
-        if(this._initialized) {
-            throw new Error("This walle module is already initialized. Initialization is allowed just one time with specific provider.");
-        }        
+        if (this._initialized) {
+            console.warn("you're trying to initialize WalletModule twice. Initialization is allowed just one time with specific provider. If runtime environment is under React. It could be occured because of StrictMode.");
+            return;
+        }
         let web3Provider;
 
         switch (walletKind) {
@@ -166,14 +167,12 @@ export class DefaultWalletModule implements WalletModule {
         if (web3Provider && web3Provider._isProvider) {
             this._web3Provider = web3Provider;
             this._initialized = true;
-            this._emitWalletInstalled({ installed: true, kind: this._determineWalletKind(web3Provider) })
-            this._listeners.get(WalletModuleEvent.ChainChanged)?.forEach(
-                (callback: WalletModuleCallbackFunction<OnChainChangedResult>) => {
-                    (web3Provider.provider as any).on('chainChanged', (chainId: string) => {
-                        callback({ chainId: parseInt(chainId, 16) });
-                    });
-                }
-            );
+            this._emitWalletInstalled({ installed: true, kind: this._determineWalletKind(web3Provider) });
+
+            (web3Provider.provider as any).on('chainChanged', (chainId: string) => {
+                this._emitListener(WalletModuleEvent.ChainChanged, { chainId: parseInt(chainId, 16) });
+            });
+
             web3Provider.getNetwork().then((network) => {
                 this._emitListener(WalletModuleEvent.ChainConnected, { chainId: network.chainId, name: network.name });
             });
@@ -185,7 +184,7 @@ export class DefaultWalletModule implements WalletModule {
     async getBalance(inEther?: boolean): Promise<string> {
         if (!this._walletConnected) {
             throw new Error("Wallet not connected.");
-        }        
+        }
         const balance = await this._web3Provider.getBalance(this._address);
         if (inEther) {
             return ethers.utils.formatEther(balance);
@@ -194,11 +193,7 @@ export class DefaultWalletModule implements WalletModule {
     }
 
     _emitListener<Type>(event: WalletModuleEvent, param: Type): void {
-        this._listeners.get(event)?.forEach(
-            (callback: WalletModuleCallbackFunction<Type>) => {
-                callback(param);
-            }
-        );
+        this._listeners.get(event)?.call(this, param);
     }
 
     _emitWalletInstalled(param: OnWalletInstalledResult) {
@@ -210,7 +205,6 @@ export class DefaultWalletModule implements WalletModule {
         this._emitListener(WalletModuleEvent.AccountChanged, param);
         this._walletConnected = (param.account.length > 0);
     }
-
 
     private _determineWalletKind(provider: providers.Web3Provider): WalletKind {
         if (provider.provider.isMetaMask) {
@@ -237,17 +231,14 @@ export class DefaultWalletModule implements WalletModule {
             const accounts = await this._web3Provider.send('eth_requestAccounts', []);
             if (accounts.length > 0) {
                 this._address = accounts[0];
-                this._listeners.get(WalletModuleEvent.AccountChanged)?.forEach(
-                    (callback: WalletModuleCallbackFunction<OnAccountChangedResult>) => {
-                        (this._web3Provider.provider as any).on('accountsChanged', (accountArray: Array<string>) => {    
-                            // If wallet is not connected, do not fire on account change result callback.                        
-                            if (this._walletConnected) { 
-                                this._address = accountArray[0];
-                                callback({ account: accountArray[0] });
-                            }
-                        });
+
+                (this._web3Provider.provider as any).on('accountsChanged', (accountArray: Array<string>) => {
+                    // If wallet is not connected, do not fire on account change result callback.                        
+                    if (this._walletConnected) {
+                        this._address = accountArray[0];
+                        this._emitListener(WalletModuleEvent.AccountChanged, { account: accountArray[0] });
                     }
-                );
+                });
 
                 this._emitAccountChanged({ account: accounts[0] });
             }
@@ -260,7 +251,7 @@ export class DefaultWalletModule implements WalletModule {
     }
 
     disconnect(): void {
-        this._walletConnected = false;
+        this._walletConnected = false;        
         this._emitListener(WalletModuleEvent.Disconnected, undefined);
     }
 
@@ -279,40 +270,36 @@ export class DefaultWalletModule implements WalletModule {
         this._emitListener(WalletModuleEvent.BalanceChanged, balance);
     }
 
-    _addEventListners<Type>(event: WalletModuleEvent, listener: WalletModuleCallbackFunction<Type>): this {
-        if (!this._listeners.has(event)) {
-            this._listeners.set(event, []);
-        }
-
-        this._listeners.get(event)?.push(listener);
+    _bindEventListners<Type>(event: WalletModuleEvent, listener: WalletModuleCallbackFunction<Type>): this {       
+        this._listeners.set(event, listener);
         return this;
     }
 
-    addOnWalletInstalledListeners(listener: WalletModuleCallbackFunction<OnWalletInstalledResult>): this {
-        return this._addEventListners(WalletModuleEvent.WalletInstalled, listener);
+    bindOnWalletInstalledListeners(listener: WalletModuleCallbackFunction<OnWalletInstalledResult>): this {
+        return this._bindEventListners(WalletModuleEvent.WalletInstalled, listener);
     }
 
-    addOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<BigNumber>): this {
-        return this._addEventListners(WalletModuleEvent.BalanceChanged, listener);
+    bindOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<BigNumber>): this {
+        return this._bindEventListners(WalletModuleEvent.BalanceChanged, listener);
     }
 
-    addOnChainConnectedListeners(listener: WalletModuleCallbackFunction<OnChainConnectedResult>): this {
-        return this._addEventListners(WalletModuleEvent.ChainConnected, listener);
+    bindOnChainConnectedListeners(listener: WalletModuleCallbackFunction<OnChainConnectedResult>): this {
+        return this._bindEventListners(WalletModuleEvent.ChainConnected, listener);
     }
 
-    addOnChainChangedListeners(listener: WalletModuleCallbackFunction<OnChainChangedResult>): this {
-        return this._addEventListners(WalletModuleEvent.ChainChanged, listener);
+    bindOnChainChangedListeners(listener: WalletModuleCallbackFunction<OnChainChangedResult>): this {
+        return this._bindEventListners(WalletModuleEvent.ChainChanged, listener);
     }
 
-    addOnAccountChangedListeners(listener: WalletModuleCallbackFunction<OnAccountChangedResult>): this {
-        return this._addEventListners(WalletModuleEvent.AccountChanged, listener);
+    bindOnAccountChangedListeners(listener: WalletModuleCallbackFunction<OnAccountChangedResult>): this {
+        return this._bindEventListners(WalletModuleEvent.AccountChanged, listener);
     }
 
-    addOnAccountConnectCanceledListeners(listener: WalletModuleCallbackFunction<void>): this {
-        return this._addEventListners(WalletModuleEvent.AccountConnectCanceled, listener);
+    bindOnAccountConnectCanceledListeners(listener: WalletModuleCallbackFunction<void>): this {
+        return this._bindEventListners(WalletModuleEvent.AccountConnectCanceled, listener);
     }
 
-    addOnDisconnectedListeners(listener: WalletModuleCallbackFunction<void>): this {
-        return this._addEventListners(WalletModuleEvent.Disconnected, listener);
+    bindOnDisconnectedListeners(listener: WalletModuleCallbackFunction<void>): this {
+        return this._bindEventListners(WalletModuleEvent.Disconnected, listener);
     }
 }
