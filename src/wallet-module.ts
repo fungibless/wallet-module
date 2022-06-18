@@ -144,16 +144,18 @@ export class DefaultWalletModule implements WalletModule {
                         }
                     }
                     if (typeof web3Provider === 'undefined') {
-                        throw new Error("Couldn't find MetaMask.");
+                        throw new Error("Can't find MetaMask Wallet.");
                     }
                 } else {
                     web3Provider = new ethers.providers.Web3Provider(window.ethereum);
                 }
                 break;
             case WalletKind.Binance:
+                if(!window.BinanceChain) { throw new Error("Can't find Binance Wallet."); }
                 web3Provider = new ethers.providers.Web3Provider(window.BinanceChain);
                 break;
             case WalletKind.Coinbase:
+                if(!window.coinbaseWalletExtension) { throw new Error("Can't find Coinbase Wallet."); }
                 web3Provider = new ethers.providers.Web3Provider(window.coinbaseWalletExtension);
                 break;
             default:
