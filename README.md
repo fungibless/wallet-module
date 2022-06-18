@@ -23,17 +23,16 @@ walletModule.initialize(WalletKind.MetaMask); // MetaMask Wallet
 ### Usage in React
 
 ```javascript
-import { WalletModule, WalletKind } from '@fungibless/wallet-module';
+const [walletModule] = React.useState(new WalletModule());
+  const [walletInstalled, setWalletInstalled] = React.useState(false);
+  const [chainConnected, setChainConnected] = React.useState(false);
+  const [walletConnected, setWalletConnected] = React.useState(false);
+  const [walletAddress, setWalletAddress] = React.useState('');
+  const [walletChainId, setWalletChainId] = React.useState('');
+  const [walletBalance, setWalletBalance] = React.useState(ethers.BigNumber.from(0));
 
-const [walletInstalled, setWalletInstalled] = React.useState(false);
-const [chainConnected, setChainConnected] = React.useState(false);
-const [walletConnected, setWalletConnected] = React.useState(false);
-const [walletAddress, setWalletAddress] = React.useState("");
-const [walletChainId, setWalletChainId] = React.useState("");
-const [walletBalance, setWalletBalance] = React.useState('0');
-
-React.useEffect(() => {
-  walletModule
+  const initializeWallet = React.useCallback((walletKind) => {
+    walletModule
       .bindOnWalletInstalledListeners(({ installed, kind }) => {
         console.log(`wallet installed: ${installed} kind: ${WalletKind[kind]}`);
         setWalletInstalled(true);
@@ -57,53 +56,60 @@ React.useEffect(() => {
       })
       .bindOnBalanceChangedListeners((amount) => {
         console.log(`this is amount : ${amount}`);
-        setWalletBalance(amount.toString());
+        setWalletBalance(amount);
       })
       .bindOnDisconnectedListeners(() => {
         console.log('disconnected');
         setWalletConnected(false);
-        setWalletBalance('0');
+        setWalletBalance(ethers.BigNumber.from(0));
         setWalletAddress('');
       })
-      .initialize(WalletKind.MetaMask);
-}, [
-  setWalletInstalled,
-  setWalletBalance,
-  setChainConnected,
-  setWalletConnected,
-  setWalletAddress,
-  setWalletChainId,
-]);
+      .initialize(walletKind);
+  }, [setWalletInstalled, setWalletBalance, setChainConnected, setWalletConnected, setWalletAddress, setWalletChainId, walletModule]);
 
-function connect() {
-  walletModule.connect();
-}
+  const balanceEther = React.useMemo(() => {    
+    return ethers.utils.formatEther(walletBalance);
+  }, [walletBalance]);
 
-function disconnect() {
-  walletModule.disconnect();
-}
+  React.useEffect(() => {
+    try {
+      initializeWallet(WalletKind.Coinbase);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [initializeWallet]);
 
-function getBalance() {
-  walletModule.getBalance().then(console.log); // get balance directly.
-  walletModule.loadBalance(); // get balance from event listener.
-}
+  function connect() {
+    walletModule.connect();
+  }
 
-function getAddress() {
-  console.log(walletModule.address);
-  console.log(walletModule.shortenAddress);
-}
+  function disconnect() {
+    walletModule.disconnect();
+  }
 
-function switchNetwork(chainId) {
-  walletModule.switchNetwork(chainId, {
-    chainId: "0x" + Number(chainId).toString(16),
-    chainName: "Polygon Mainnet",
-    nativeCurrency: {
-      name: "MATIC",
-      symbol: "MATIC",
-      decimals: 18,
-    },
-    rpcUrls: ["https://polygon-rpc.com/"],
-    blockExplorerUrls: ["https://polygonscan.com/"],
-  });
-}
+  function getBalance() {
+    walletModule.getBalance().then(console.log); // get balance directly.
+    walletModule.loadBalance(); // get balance from event listener.
+  }
+
+  function getAddress() {
+    console.log(walletModule.address);
+    console.log(walletModule.shortenAddress);
+  }
+
+  function switchNetwork(chainId) {
+    walletModule.switchNetwork(chainId,
+      {
+        chainId: '0x' + Number(chainId).toString(16),
+        chainName: 'Polygon Mainnet',
+        nativeCurrency: {
+          name: 'MATIC',
+          symbol: 'MATIC',
+          decimals: 18,
+        },
+        rpcUrls: ["https://polygon-rpc.com/"],
+        blockExplorerUrls: ["https://polygonscan.com/"],
+      },
+    );
+  }
 ```
