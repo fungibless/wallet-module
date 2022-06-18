@@ -33,6 +33,18 @@ type OnWalletInstalledResult = {
     kind: WalletKind
 }
 
+type AddNetworkParam = {
+    chainId: string,
+    chainName: string,
+    nativeCurrency: {
+        name: string,
+        symbol: string,
+        decimals: number,
+    },
+    rpcUrls: Array<string>,
+    blockExplorerUrls: Array<string>
+}
+
 interface WalletModuleCallbackFunction<T1> {
     (param: T1): void;
 }
@@ -40,6 +52,7 @@ interface WalletModuleCallbackFunction<T1> {
 interface WalletModule {
 
     get address(): string;
+    get shortenAddress(): string;
     get provider(): providers.BaseProvider;
     get connected(): boolean;
     get installed(): boolean;
@@ -48,8 +61,11 @@ interface WalletModule {
     initializeWithWeb3Provider(provider: providers.Web3Provider): void;
     connect(): Promise<void>;
     disconnect(): void;
+    switchNetwork(chainId: number, addNetworkIfNotExists?: AddNetworkParam): Promise<void>;
+
+    getBalance(inEther?: boolean): Promise<string>;
+
     loadBalance(): void;
-    switchNetwork(): void;
 
     addOnWalletInstalledListeners(listener: WalletModuleCallbackFunction<OnWalletInstalledResult>): this;
     addOnChainConnectedListeners(listener: WalletModuleCallbackFunction<OnChainConnectedResult>): this;
@@ -57,8 +73,7 @@ interface WalletModule {
     addOnAccountChangedListeners(listener: WalletModuleCallbackFunction<OnAccountChangedResult>): this;
     addOnAccountConnectCanceledListeners(listener: WalletModuleCallbackFunction<void>): this;
     addOnDisconnectedListeners(listener: WalletModuleCallbackFunction<void>): this;
-    addOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<string>): this;
-
+    addOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<BigNumber>): this;
 }
 
 enum WalletModuleEvent {
@@ -73,7 +88,6 @@ enum WalletModuleEvent {
 
 export class DefaultWalletModule implements WalletModule {
 
-    private _balance: BigNumber;
     private _address!: string;
     private _web3Provider!: providers.Web3Provider;
 
@@ -83,15 +97,29 @@ export class DefaultWalletModule implements WalletModule {
     private _listeners: Map<WalletModuleEvent, Array<WalletModuleCallbackFunction<any>>>;
 
     constructor() {
-        this._balance = BigNumber.from(0);
         this._listeners = new Map();
     }
 
-    get address(): string {
-        throw new Error('Method not implemented.');
+    get provider(): providers.BaseProvider {
+        return this._web3Provider;
     }
+
+    get address(): string {
+        if (this._address) {
+            return this._address;
+        }
+        throw new Error("Wallet not connected.");
+    }
+
+    get shortenAddress(): string {
+        if (this._address) {
+            return `${this._address.substring(0, 4 + 1)}...${this._address.substring(this._address.length - 4, this._address.length)}`;
+        }
+        throw new Error("Wallet not connected.");
+    }
+
     get connected(): boolean {
-        throw new Error('Method not implemented.');
+        return this._walletConnected;
     }
 
     get installed(): boolean {
@@ -130,24 +158,6 @@ export class DefaultWalletModule implements WalletModule {
         this.initializeWithWeb3Provider(web3Provider);
     }
 
-    _emitListener<Type>(event: WalletModuleEvent, param: Type): void {
-        this._listeners.get(event)?.forEach(
-            (callback: WalletModuleCallbackFunction<Type>) => {
-                callback(param);
-            }
-        );
-    }
-
-    _emitWalletInstalled(param: OnWalletInstalledResult) {
-        this._emitListener(WalletModuleEvent.WalletInstalled, { installed: param.installed, kind: param.kind });
-        this._walletInstalled = param.installed;
-    }
-
-    _emitAccountChanged(param: OnAccountChangedResult) {
-        this._emitListener(WalletModuleEvent.AccountChanged, param);
-        this._walletConnected = (param.account.length > 0);
-    }
-
     initializeWithWeb3Provider(web3Provider: providers.Web3Provider): void {
         if (web3Provider && web3Provider._isProvider) {
             this._web3Provider = web3Provider;
@@ -166,6 +176,36 @@ export class DefaultWalletModule implements WalletModule {
             this._emitListener(WalletModuleEvent.WalletInstalled, { installed: false, kind: WalletKind.Unknown });
         }
     }
+
+    async getBalance(inEther?: boolean): Promise<string> {
+        if (!this._walletConnected) {
+            throw new Error("Wallet not connected.");
+        }        
+        const balance = await this._web3Provider.getBalance(this._address);
+        if (inEther) {
+            return ethers.utils.formatEther(balance);
+        }
+        return balance.toString();
+    }
+
+    _emitListener<Type>(event: WalletModuleEvent, param: Type): void {
+        this._listeners.get(event)?.forEach(
+            (callback: WalletModuleCallbackFunction<Type>) => {
+                callback(param);
+            }
+        );
+    }
+
+    _emitWalletInstalled(param: OnWalletInstalledResult) {
+        this._emitListener(WalletModuleEvent.WalletInstalled, { installed: param.installed, kind: param.kind });
+        this._walletInstalled = param.installed;
+    }
+
+    _emitAccountChanged(param: OnAccountChangedResult) {
+        this._emitListener(WalletModuleEvent.AccountChanged, param);
+        this._walletConnected = (param.account.length > 0);
+    }
+
 
     private _determineWalletKind(provider: providers.Web3Provider): WalletKind {
         if (provider.provider.isMetaMask) {
@@ -191,17 +231,22 @@ export class DefaultWalletModule implements WalletModule {
         try {
             const accounts = await this._web3Provider.send('eth_requestAccounts', []);
             if (accounts.length > 0) {
+                this._address = accounts[0];
                 this._listeners.get(WalletModuleEvent.AccountChanged)?.forEach(
                     (callback: WalletModuleCallbackFunction<OnAccountChangedResult>) => {
-                        (this._web3Provider.provider as any).on('accountsChanged',  (accountArray: Array<string>) => {
-                            callback({ account: accountArray[0] });
+                        (this._web3Provider.provider as any).on('accountsChanged', (accountArray: Array<string>) => {    
+                            // If wallet is not connected, do not fire on account change result callback.                        
+                            if (this._walletConnected) { 
+                                this._address = accountArray[0];
+                                callback({ account: accountArray[0] });
+                            }
                         });
                     }
                 );
 
-                this._emitAccountChanged({account: accounts[0]});
+                this._emitAccountChanged({ account: accounts[0] });
             }
-            
+
             return Promise.resolve();
         } catch (err) {
             console.log(err);
@@ -210,33 +255,23 @@ export class DefaultWalletModule implements WalletModule {
     }
 
     disconnect(): void {
-        throw new Error('Method not implemented.');
+        this._walletConnected = false;
+        this._emitListener(WalletModuleEvent.Disconnected, undefined);
     }
 
-    switchNetwork(): void {
-        throw new Error('Method not implemented.');
-    }
-
-    get provider(): providers.BaseProvider {
-        return this._web3Provider;
+    async switchNetwork(chainId: number, addNetworkIfNotExists?: AddNetworkParam): Promise<void> {
+        try {
+            await this._web3Provider.send('wallet_switchEthereumChain', [{ chainId: '0x' + chainId.toString(16) }]);
+        } catch (err) {
+            if (addNetworkIfNotExists) {
+                await this._web3Provider.send('wallet_addEthereumChain', [addNetworkIfNotExists]);
+            }
+        }
     }
 
     async loadBalance() {
-        return this._loadBalance(this._address);
-    }
-
-    async _loadBalance(address: string) {
-        // const contractUserBalance = await this._provider.getBalance(address);
-        // const amount = utils.formatEther(contractUserBalance);
-        const amount = '1000';
-        console.log(`${WalletModuleEvent.BalanceChanged} Amount:${amount}`);
-
-        this._listeners.get(WalletModuleEvent.BalanceChanged)?.forEach(
-            function (value: WalletModuleCallbackFunction<string>) {
-                value(amount);
-            }
-        )
-        return amount;
+        const balance = await this._web3Provider.getBalance(this._address);
+        this._emitListener(WalletModuleEvent.BalanceChanged, balance);
     }
 
     _addEventListners<Type>(event: WalletModuleEvent, listener: WalletModuleCallbackFunction<Type>): this {
@@ -252,7 +287,7 @@ export class DefaultWalletModule implements WalletModule {
         return this._addEventListners(WalletModuleEvent.WalletInstalled, listener);
     }
 
-    addOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<string>): this {
+    addOnBalanceChangedListeners(listener: WalletModuleCallbackFunction<BigNumber>): this {
         return this._addEventListners(WalletModuleEvent.BalanceChanged, listener);
     }
 

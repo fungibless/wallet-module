@@ -5,33 +5,87 @@ A library that provides a programming model for input, output, and event handlin
 ## Getting Started
 
 ```javascript
-const walletModule = new WalletModule();
+import { WalletModule, WalletKind } from '@fungibless/wallet-module';
 
-walletModule
+const [walletInstalled, setWalletInstalled] = React.useState(false);
+const [chainConnected, setChainConnected] = React.useState(false);
+const [walletConnected, setWalletConnected] = React.useState(false);
+const [walletAddress, setWalletAddress] = React.useState("");
+const [walletChainId, setWalletChainId] = React.useState("");
+const [walletBalance, setWalletBalance] = React.useState(0);
+
+React.useEffect(() => {
+  walletModule
     .addOnWalletInstalledListeners(({ installed, kind }) => {
       console.log(`wallet installed: ${installed} kind: ${WalletKind[kind]}`);
+      setWalletInstalled(true);
     })
     .addOnChainConnectedListeners(({ chainId, name }) => {
-      console.log('chain connected chainId:', chainId, " name:", name);
+      console.log("chain connected chainId:", chainId, " name:", name);
+      setChainConnected(true);
+      setWalletChainId(chainId);
     })
     .addOnChainChangedListeners(({ chainId }) => {
-      console.log('chain changed chainId:', chainId );
+      console.log("chain changed chainId:", chainId);
+      window.location.reload();
     })
-    .addOnAccountChangedListeners(({account}) => {
-      console.log('account changed', account);
+    .addOnAccountChangedListeners(({ account }) => {
+      console.log("account changed", account);
+      setWalletConnected(true);
+      setWalletAddress(account);
     })
     .addOnAccountConnectCanceledListeners(() => {
       console.log("user canceled");
     })
     .addOnBalanceChangedListeners((amount) => {
       console.log(`this is amount : ${amount}`);
+      setWalletBalance(amount.toString());
     })
     .addOnDisconnectedListeners(() => {
-      console.log('disconnected');
+      console.log("disconnected");
+      setWalletConnected(false);
+      setWalletBalance("0");
+      setWalletAddress("");
     })
     .initialize(WalletKind.MetaMask);
+}, [
+  setWalletInstalled,
+  setWalletBalance,
+  setChainConnected,
+  setWalletConnected,
+  setWalletAddress,
+  setWalletChainId,
+]);
 
 function connect() {
   walletModule.connect();
+}
+
+function disconnect() {
+  walletModule.disconnect();
+}
+
+function getBalance() {
+  walletModule.getBalance().then(console.log); // get balance directly.
+  walletModule.loadBalance(); // get balance from event listener.
+}
+
+function getAddress() {
+  console.log(walletModule.address);
+  console.log(walletModule.shortenAddress);
+}
+
+function switchNetwork(chainId) {
+  walletModule.switchNetwork(chainId, {
+    chainId: "0x" + Number(chainId).toString(16),
+    chainName: "Polygon Mainnet",
+    nativeCurrency: {
+      name: "MATIC",
+      symbol: "MATIC",
+      decimals: 18,
+    },
+    rpcUrls: ["https://polygon-rpc.com/"],
+    blockExplorerUrls: ["https://polygonscan.com/"],
+  });
 }
 ```
