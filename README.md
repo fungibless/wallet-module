@@ -2,7 +2,15 @@
 
 A library that provides a programming model for input, output, and event handling through a unified interface for various Ethereum-based wallet providers on a web browser. Compatible with Metamask, Binance and Coinbase wallets.
 
-## Getting Started
+# Getting started
+
+```bash
+npm install --save @fungibless/wallet-module
+```
+
+## Usage
+
+### Usage in React
 
 ```javascript
 import { WalletModule, WalletKind } from '@fungibless/wallet-module';
@@ -12,7 +20,7 @@ const [chainConnected, setChainConnected] = React.useState(false);
 const [walletConnected, setWalletConnected] = React.useState(false);
 const [walletAddress, setWalletAddress] = React.useState("");
 const [walletChainId, setWalletChainId] = React.useState("");
-const [walletBalance, setWalletBalance] = React.useState(0);
+const [walletBalance, setWalletBalance] = React.useState('0');
 
 React.useEffect(() => {
   walletModule
