@@ -34,38 +34,38 @@ const [walletBalance, setWalletBalance] = React.useState('0');
 
 React.useEffect(() => {
   walletModule
-    .addOnWalletInstalledListeners(({ installed, kind }) => {
-      console.log(`wallet installed: ${installed} kind: ${WalletKind[kind]}`);
-      setWalletInstalled(true);
-    })
-    .addOnChainConnectedListeners(({ chainId, name }) => {
-      console.log("chain connected chainId:", chainId, " name:", name);
-      setChainConnected(true);
-      setWalletChainId(chainId);
-    })
-    .addOnChainChangedListeners(({ chainId }) => {
-      console.log("chain changed chainId:", chainId);
-      window.location.reload();
-    })
-    .addOnAccountChangedListeners(({ account }) => {
-      console.log("account changed", account);
-      setWalletConnected(true);
-      setWalletAddress(account);
-    })
-    .addOnAccountConnectCanceledListeners(() => {
-      console.log("user canceled");
-    })
-    .addOnBalanceChangedListeners((amount) => {
-      console.log(`this is amount : ${amount}`);
-      setWalletBalance(amount.toString());
-    })
-    .addOnDisconnectedListeners(() => {
-      console.log("disconnected");
-      setWalletConnected(false);
-      setWalletBalance("0");
-      setWalletAddress("");
-    })
-    .initialize(WalletKind.MetaMask);
+      .bindOnWalletInstalledListeners(({ installed, kind }) => {
+        console.log(`wallet installed: ${installed} kind: ${WalletKind[kind]}`);
+        setWalletInstalled(true);
+      })
+      .bindOnChainConnectedListeners(({ chainId, name }) => {
+        console.log('chain connected chainId:', chainId, " name:", name);
+        setChainConnected(true);
+        setWalletChainId(chainId);
+      })
+      .bindOnChainChangedListeners(({ chainId }) => {
+        console.log('chain changed chainId:', chainId);
+        window.location.reload();
+      })
+      .bindOnAccountChangedListeners(({ account }) => {
+        console.log('account changed', account);
+        setWalletConnected(true);
+        setWalletAddress(account);
+      })
+      .bindOnAccountConnectCanceledListeners(() => {
+        console.log("user canceled");
+      })
+      .bindOnBalanceChangedListeners((amount) => {
+        console.log(`this is amount : ${amount}`);
+        setWalletBalance(amount.toString());
+      })
+      .bindOnDisconnectedListeners(() => {
+        console.log('disconnected');
+        setWalletConnected(false);
+        setWalletBalance('0');
+        setWalletAddress('');
+      })
+      .initialize(WalletKind.MetaMask);
 }, [
   setWalletInstalled,
   setWalletBalance,
