@@ -6,6 +6,8 @@ A library that provides a programming model for input, output, and event handlin
 
 ```bash
 npm install --save @fungibless/wallet-module
+or
+yarn install @fungibless/wallet-module
 ```
 
 ## Multiple Wallet Support
@@ -24,92 +26,95 @@ walletModule.initialize(WalletKind.MetaMask); // MetaMask Wallet
 
 ```javascript
 const [walletModule] = React.useState(new WalletModule());
-  const [walletInstalled, setWalletInstalled] = React.useState(false);
-  const [chainConnected, setChainConnected] = React.useState(false);
-  const [walletConnected, setWalletConnected] = React.useState(false);
-  const [walletAddress, setWalletAddress] = React.useState('');
-  const [walletChainId, setWalletChainId] = React.useState('');
-  const [walletBalance, setWalletBalance] = React.useState(ethers.BigNumber.from(0));
+const [walletInstalled, setWalletInstalled] = React.useState(false);
+const [chainConnected, setChainConnected] = React.useState(false);
+const [walletConnected, setWalletConnected] = React.useState(false);
+const [walletAddress, setWalletAddress] = React.useState("");
+const [walletChainId, setWalletChainId] = React.useState("");
+const [walletBalance, setWalletBalance] = React.useState(
+	ethers.BigNumber.from(0)
+);
 
-  const initializeWallet = React.useCallback((walletKind) => {
-    walletModule
-      .bindOnWalletInstalledListeners(({ installed, kind }) => {
-        console.log(`wallet installed: ${installed} kind: ${WalletKind[kind]}`);
-        setWalletInstalled(true);
-      })
-      .bindOnChainConnectedListeners(({ chainId, name }) => {
-        console.log('chain connected chainId:', chainId, " name:", name);
-        setChainConnected(true);
-        setWalletChainId(chainId);
-      })
-      .bindOnChainChangedListeners(({ chainId }) => {
-        console.log('chain changed chainId:', chainId);
-        window.location.reload();
-      })
-      .bindOnAccountChangedListeners(({ account }) => {
-        console.log('account changed', account);
-        setWalletConnected(true);
-        setWalletAddress(account);
-      })
-      .bindOnAccountConnectCanceledListeners(() => {
-        console.log("user canceled");
-      })
-      .bindOnBalanceChangedListeners((amount) => {
-        console.log(`this is amount : ${amount}`);
-        setWalletBalance(amount);
-      })
-      .bindOnDisconnectedListeners(() => {
-        console.log('disconnected');
-        setWalletConnected(false);
-        setWalletBalance(ethers.BigNumber.from(0));
-        setWalletAddress('');
-      })
-      .initialize(walletKind);
-  }, [setWalletInstalled, setWalletBalance, setChainConnected, setWalletConnected, setWalletAddress, setWalletChainId, walletModule]);
+const initializeWallet = React.useCallback(
+	(walletKind) => {
+		walletModule
+			.bindOnWalletInstalledListeners(({ installed, kind }) => {
+				console.log(`wallet installed: ${installed} kind: ${WalletKind[kind]}`);
+				setWalletInstalled(true);
+			})
+			.bindOnChainConnectedListeners(({ chainId, name }) => {
+				console.log("chain connected chainId:", chainId, " name:", name);
+				setChainConnected(true);
+				setWalletChainId(chainId);
+			})
+			.bindOnChainChangedListeners(({ chainId }) => {
+				console.log("chain changed chainId:", chainId);
+				window.location.reload();
+			})
+			.bindOnAccountChangedListeners(({ account }) => {
+				console.log("account changed", account);
+				setWalletConnected(true);
+				setWalletAddress(account);
+			})
+			.bindOnAccountConnectCanceledListeners(() => {
+				console.log("user canceled");
+			})
+			.bindOnBalanceChangedListeners((amount) => {
+				console.log(`this is amount : ${amount}`);
+				setWalletBalance(amount);
+			})
+			.bindOnDisconnectedListeners(() => {
+				console.log("disconnected");
+				setWalletConnected(false);
+				setWalletBalance(ethers.BigNumber.from(0));
+				setWalletAddress("");
+			})
+			.initialize(walletKind);
+	},
+	[walletModule]
+);
 
-  const balanceEther = React.useMemo(() => {    
-    return ethers.utils.formatEther(walletBalance);
-  }, [walletBalance]);
+const balanceEther = React.useMemo(() => {
+	return ethers.utils.formatEther(walletBalance);
+}, [walletBalance]);
 
-  React.useEffect(() => {
-    try {
-      initializeWallet(WalletKind.Coinbase);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [initializeWallet]);
+React.useEffect(() => {
+	try {
+		initializeWallet(WalletKind.Coinbase);
+	} catch (err) {
+		console.error(err);
+	}
+}, [initializeWallet]);
 
-  function connect() {
-    walletModule.connect();
-  }
+function connect() {
+	walletModule.connect();
+}
 
-  function disconnect() {
-    walletModule.disconnect();
-  }
+function disconnect() {
+	walletModule.disconnect();
+}
 
-  function getBalance() {
-    walletModule.getBalance().then(console.log); // get balance directly.
-    walletModule.loadBalance(); // get balance from event listener.
-  }
+function getBalance() {
+	walletModule.getBalance().then(console.log); // get balance directly.
+	walletModule.loadBalance(); // get balance from event listener.
+}
 
-  function getAddress() {
-    console.log(walletModule.address);
-    console.log(walletModule.shortenAddress);
-  }
+function getAddress() {
+	console.log(walletModule.address);
+	console.log(walletModule.shortenAddress);
+}
 
-  function switchNetwork(chainId) {
-    walletModule.switchNetwork(chainId,
-      {
-        chainId: '0x' + Number(chainId).toString(16),
-        chainName: 'Polygon Mainnet',
-        nativeCurrency: {
-          name: 'MATIC',
-          symbol: 'MATIC',
-          decimals: 18,
-        },
-        rpcUrls: ["https://polygon-rpc.com/"],
-        blockExplorerUrls: ["https://polygonscan.com/"],
-      },
-    );
-  }
+function switchNetwork(chainId) {
+	walletModule.switchNetwork(chainId, {
+		chainId: "0x" + Number(chainId).toString(16),
+		chainName: "Polygon Mainnet",
+		nativeCurrency: {
+			name: "MATIC",
+			symbol: "MATIC",
+			decimals: 18,
+		},
+		rpcUrls: ["https://polygon-rpc.com/"],
+		blockExplorerUrls: ["https://polygonscan.com/"],
+	});
+}
 ```
