@@ -53,7 +53,7 @@ interface WalletModule {
 
     get address(): string;
     get shortenAddress(): string;
-    get provider(): providers.BaseProvider;
+    get provider(): providers.Web3Provider;
     get connected(): boolean;
     get installed(): boolean;
 
@@ -101,7 +101,7 @@ export class DefaultWalletModule implements WalletModule {
         this._listeners = new Map();
     }
 
-    get provider(): providers.BaseProvider {
+    get provider(): providers.Web3Provider {
         return this._web3Provider;
     }
 
