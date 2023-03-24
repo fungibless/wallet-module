@@ -1,11 +1,14 @@
 # wallet-module
 
-A library that provides a programming model for input, output, and event handling through a unified interface for various Ethereum-based wallet providers on a web browser. Compatible with Metamask, Binance and Coinbase wallets.
+A user-friendly library that offers seamless integration with various Ethereum-based wallet providers in web browsers, including Metamask, Binance, and Coinbase. The wallet-module provides a unified interface for input, output, and event handling, making it easy to manage your wallet within your web application.
 
 ## Demo Site
-https://fungibless.xyz/
+
+Visit the demo site at https://fungibless.xyz/ to explore wallet-module in action.
 
 ## Getting started
+
+To install wallet-module in your project, run:
 
 ```bash
 npm install --save @fungibless/wallet-module
@@ -15,7 +18,7 @@ yarn install @fungibless/wallet-module
 
 ## Multiple Wallet Support
 
-- Choose one below. single walletModule should be initialized only one time with WalletKind
+Choose one wallet provider below. Remember to initialize the walletModule only once with the WalletKind of your choice.
 
 ```javascript
 walletModule.initialize(WalletKind.MetaMask); // MetaMask Wallet
@@ -26,6 +29,7 @@ walletModule.initialize(WalletKind.MetaMask); // MetaMask Wallet
 ## Usage
 
 ### Usage in React
+Here's an example of how to use wallet-module in a React application:
 
 ```javascript
 const [walletModule] = React.useState(new WalletModule());
@@ -121,3 +125,10 @@ function switchNetwork(chainId) {
 	});
 }
 ```
+
+This code demonstrates how to use wallet-module to manage the connection, balance, and address of your wallet. It also shows how to handle various events, such as wallet installation, chain connection, and balance changes.
+
+Remember to wrap the code blocks with backticks (`) to ensure proper formatting. This will make it easier for users to copy and paste the code into their projects.
+
+## License
+This project is licensed under the terms of the MIT license.
